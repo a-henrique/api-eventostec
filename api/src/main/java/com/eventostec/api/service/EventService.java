@@ -33,6 +33,9 @@ public class EventService {
     @Autowired
     private EventRepository repository;
 
+    @Autowired
+    private AddressService addressService;
+
     public Event createEvent(EventRequestDTO data){
         String imgUrl = null;
 
@@ -47,6 +50,9 @@ public class EventService {
         newEvent.setImgUrl(imgUrl);
         newEvent.setRemote(data.remote());
 
+        if(!data.remote()) {
+            this.addressService.createAddress(data, newEvent);
+        }
         repository.save(newEvent);
         return newEvent;
     }
@@ -54,9 +60,38 @@ public class EventService {
     public List<EventResponseDTO> getUpcomingEvents(int page, int size){
         Pageable pageable = PageRequest.of(page, size);
         Page<Event> eventsPage = this.repository.findUpcomingEvents(new Date(), pageable);
-        return eventsPage.map(event -> new EventResponseDTO(event.getId(), event.getTitle(),
-                event.getDescription(), event.getDataEvent(), "", "", event.getRemote(),
-                event.getEventUrl(), event.getImgUrl())).stream().toList();
+        return eventsPage.map(event -> new EventResponseDTO(
+                event.getId(),
+                event.getTitle(),
+                event.getDescription(),
+                event.getDataEvent(),
+                event.getAddress() != null ? event.getAddress().getCity() : "",
+                event.getAddress() != null ? event.getAddress().getUf() : "",
+                event.getRemote(),
+                event.getEventUrl(),
+                event.getImgUrl())).stream().toList();
+    }
+
+    public List<EventResponseDTO> getFilteredEvents(int page, int size, String title, String city, String uf, Date startDate, Date endDate){
+        title = (title != null) ?  title : "";
+        city = (city != null) ? city : "";
+        uf = (uf != null) ? uf : "";
+        startDate = (startDate != null) ? startDate : new Date();
+        endDate = (endDate != null) ? endDate : new Date(10);
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<Event> eventsPage = this.repository.findFilteredEvents(title, city, uf, startDate, endDate, pageable);
+        return eventsPage.map(event -> new EventResponseDTO(
+                event.getId(),
+                event.getTitle(),
+                event.getDescription(),
+                event.getDataEvent(),
+                event.getAddress() != null ? event.getAddress().getCity() : "",
+                event.getAddress() != null ? event.getAddress().getUf() : "",
+                event.getRemote(),
+                event.getEventUrl(),
+                event.getImgUrl())).stream().toList();
     }
 
     private String uploadImg(MultipartFile multipartFile){
